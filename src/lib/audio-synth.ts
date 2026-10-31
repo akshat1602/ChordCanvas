@@ -1,43 +1,61 @@
 import * as Tone from 'tone';
 
 let synth: Tone.PolySynth | null = null;
-let effects: Tone.ToneAudioNode[] = [];
+let masterVolume: Tone.Volume | null = null;
 
-export async function initAudio(mode: 'acoustic' | 'electric') {
-  await Tone.start(); // Must run after a user gesture
-
-  // Clean up previous instances to prevent memory leaks and stacked audio
+export async function initAudio(mode: 'acoustic' | 'electric' = 'acoustic') {
+  if (Tone.context.state !== 'running') {
+    await Tone.start();
+  }
+  
   synth?.dispose();
-  effects.forEach(fx => fx.dispose());
-  effects = [];
+  masterVolume?.dispose();
+
+  masterVolume = new Tone.Volume(0).toDestination();
+  synth = new Tone.PolySynth(Tone.Synth);
 
   if (mode === 'electric') {
-    // Electric: Sawtooth wave for a grittier base tone
-    synth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'sawtooth' },
-      envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 1.2 }
-    });
-
-    // Amplifier lead tone FX
     const dist = new Tone.Distortion(0.6);
     const delay = new Tone.FeedbackDelay('8n', 0.25);
-    effects = [dist, delay];
-
-    synth.chain(dist, delay, Tone.getDestination());
+    synth.chain(dist, delay, masterVolume);
   } else {
-    // Acoustic: Clean, resonant string synthesis
-    synth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'triangle' },
-      envelope: { attack: 0.005, decay: 2, sustain: 0.1, release: 2.5 }
-    });
-
-    synth.toDestination();
+    synth.connect(masterVolume);
   }
 }
 
-export const play = (notes: string[], dur = '2n') => synth?.triggerAttackRelease(notes, dur);
-
-export function setGlobalVolume(db: number) {
-  // Ramps to the new volume over 0.1 seconds to prevent audio artifacts
-  Tone.getDestination().volume.rampTo(db, 0.1); 
+export function setMasterVolume(volPercent: number) {
+  if (!masterVolume) return;
+  if (volPercent === 0) {
+    masterVolume.volume.value = -Infinity;
+  } else {
+    const db = 40 * Math.log10(volPercent / 100);
+    masterVolume.volume.value = Math.max(-40, Math.min(0, db));
+  }
 }
+
+export const play = async (notes: string[], dur = '2n') => {
+  if (Tone.context.state !== 'running') {
+    await Tone.start();
+  }
+  if (!synth) {
+    await initAudio('acoustic');
+  }
+  synth?.triggerAttackRelease(notes, dur);
+};
+
+// Cascading strum effect from low string to high string
+export const strum = async (notes: string[], dur = '2n') => {
+  if (Tone.context.state !== 'running') {
+    await Tone.start();
+  }
+  if (!synth) {
+    await initAudio('acoustic');
+  }
+  if (!synth || notes.length === 0) return;
+
+  notes.forEach((note, index) => {
+    setTimeout(() => {
+      synth?.triggerAttackRelease(note, dur);
+    }, index * 45); // 45ms stagger between strings
+  });
+};
