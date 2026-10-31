@@ -2,7 +2,7 @@
 
 # ChordCanvas
 
-**A dual-mode music theory and visualization engine for acoustic and electric guitarists, built during a 9-day solo engineering sprint.**
+**A dual-mode music theory and visualization engine for acoustic and electric guitarists.**
 
 [![Next.js](https://img.shields.io/badge/Next.js-App_Router-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-149ECA?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
